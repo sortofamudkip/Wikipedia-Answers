@@ -3,6 +3,7 @@ from bs4 import BeautifulSoup
 from pprint import pprint
 from multiprocessing import Pool
 import json, re
+from time import sleep
 from requests import get, RequestException
 from urllib.parse import unquote
 
@@ -42,20 +43,46 @@ class Question:
 		google_format = "+".join(question.split())
 		search_link = "https://www.google.com/search?q=" + google_format
 		result = self.simple_get(search_link)
+		if result is None:
+			print("result is none!")
+			assert 0
 		soup = BeautifulSoup(result, 'html.parser')
-		links = soup.find_all(href=re.compile("en.wikipedia.org/wiki"))
-		if (len(links) == 0): # cannot find wiki link, just get the first link
-			print("warning: cannot find wiki link for question: {}".format(question))
-			try:
-				ugly_link = soup.find_all(class_ = "r")[0].a.attrs["href"]
-			except Exception as e:
-				print("\tSkipping this question!")
-				return None
-			# print("\tLink of find found: {}".format(ugly_link))
-		else:
-			ugly_link = links[0].attrs["href"] # always assume it's the first one; get just the link
-		match = re.match(r"/url\?q=(.*?)&", ugly_link) # extract wikipedia link from the mess
-		return match.group(1)
+		# links = soup.find_all(href=re.compile("en.wikipedia.org/wiki"))
+		# if (len(links) == 0): # cannot find wiki link, just get the first link
+		# 	print("warning: cannot find wiki link for question: {}".format(question))
+		# 	try:
+		# 		ugly_link = soup.find_all(class_ = "r")[0].a.attrs["href"]
+		# 	except Exception as e:
+		# 		print("\tSkipping this question!")
+		# 		return None
+		# 	# print("\tLink of find found: {}".format(ugly_link))
+		# else:
+		# 	ugly_link = links[0].attrs["href"] # always assume it's the first one; get just the link
+
+		"""
+		for wikimovies: just get the first link
+		"""
+		try:
+			match = soup.find_all(class_ = "r")
+			for m in match: # keep going through each match until a relevant one is found
+				link = m.a.attrs["href"]
+				if re.search(google_format, link): 
+					continue # try another one if this is a bad link
+				else: 
+					match = re.match(r"/url\?q=(.*?)&", m) # extract wikipedia link from the mess
+					return match.group(1)
+		except (AttributeError, TypeError) as e:
+			print("error:", e)
+			print("-------")
+			match = soup.find_all(class_ = "r"); print("match: |{}|".format(match))
+			match_0 = match[0]; print("match[0]: |{}|".format(match_0))
+			link = match_0.a; print("link: |{}|".format(link))
+			print("vars(link):", vars(link))
+			print("attrs: ", link.attrs)
+			print("-------")
+			print("exiting program!")
+			return None
+
 
 	def get_paragraphs(self, link: str):
 		# enter wikipedia link, get first 5 paragraphs.
@@ -85,17 +112,18 @@ def get_q_a_map(dirname: str) -> list:
 	return q_a_list
 
 def get_a_paragraph(entry):
-	try:
-		print("trying question: |{}|".format(entry["question"]))
-		Q = Question(entry["question"])
-		if Q.is_valid:
-			return {"question": entry["question"], "answers": entry["answers"], "paragraphs" : Q.paragraphs}
-		else: 
-			return {}
-	except Exception as e:
-		print("Problem found!! Skipping this question.")
-		print("\tproblem: |{}|".format(e))
-		return {}	
+	# try:
+	sleep(0.5) 
+	print("trying question: |{}|".format(entry["question"]))
+	Q = Question(entry["question"])
+	if Q.is_valid:
+		return {"question": entry["question"], "answers": entry["answers"], "paragraphs" : Q.paragraphs}
+	else: 
+		return {}
+	# except Exception as e:
+	# 	print("Problem found!! Skipping this question.")
+	# 	print("\tproblem: |{}|".format(e))
+	# 	return {}	
 
 def run_job(qlist, thread=12):
 	pool = Pool(thread)
@@ -105,7 +133,7 @@ def run_job(qlist, thread=12):
 
 if __name__ == "__main__":
 	# webq_alist = get_q_a_map("wikimovies")
-	webq_alist = get_q_a_map("wikimovies")[194:]
+	webq_alist = get_q_a_map("wikimovies")
 	# print(webq_alist); exit(0)
 	big_list = run_job(webq_alist, 4)
 
