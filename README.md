@@ -1,5 +1,5 @@
 
-## "AI" (rename to "Wikipedia Answers")
+## Wikipedia Answers / part of AI final project
 Given a list of questions, googles the first Wikipedia article found for each and then returns the first 5 paragraphs of that article, then stores the results in a JSON file.
 
 For gathering data for AI final project.
